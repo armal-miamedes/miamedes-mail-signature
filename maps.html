@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Patientenroute</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAiucw4P6TRLGU0eUtCUR3VfFMIPbN2Sdg&libraries=geometry"></script>
+    <script src="https://unpkg.com/ol-mapbox-style@6.1.4/dist/olms.js"></script>
+    <link rel="stylesheet" href="https://openlayers.org/en/v6.5.0/css/ol.css" type="text/css">
+    <script src="https://openlayers.org/en/v6.5.0/build/ol.js"></script>
+    <style>
+        .map {
+            height: 600px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="map" class="map"></div>
+    <script>
+        var route = [
+            { name: 'Müller, Hans', adresse: 'Humboldtstraße 3, 22083 Hamburg', lat: 53.571330, lon: 10.027706 },
+            { name: 'Schmidt, Gerda', adresse: 'Bostelreihe 7, 22083 Hamburg', lat: 53.572662, lon: 10.028470 },
+            { name: 'Seddiqi, Shoaib', adresse: 'Heinrich-Hertz-Straße 101, 22083 Hamburg', lat: 53.573230, lon: 10.024036 },
+            { name: 'Zentrale', adresse: 'Hamburger Str. 3, 22083 Hamburg', lat: 53.570718, lon: 10.027390 }
+        ];
+        
+        var map = new ol.Map({
+            target: 'map',
+            layers: [
+                new ol.layer.Tile({
+                    source: new ol.source.OSM()
+                })
+            ],
+            view: new ol.View({
+                center: ol.proj.fromLonLat([10.027390, 53.570718]),
+                zoom: 14
+            })
+        });
+
+        var directionsService = new google.maps.DirectionsService();
+        var directionsRenderer = new google.maps.DirectionsRenderer();
+        var googleMap = new google.maps.Map(document.getElementById('map'), {
+            zoom: 14,
+            center: { lat: 53.570718, lng: 10.027390 }
+        });
+        directionsRenderer.setMap(googleMap);
+
+        var waypoints = route.slice(1, -1).map(function(point) {
+            return {
+                location: new google.maps.LatLng(point.lat, point.lon),
+                stopover: true
+            };
+        });
+
+        var request = {
+            origin: new google.maps.LatLng(route[0].lat, route[0].lon),
+            destination: new google.maps.LatLng(route[route.length - 1].lat, route[route.length - 1].lon),
+            waypoints: waypoints,
+            optimizeWaypoints: true,
+            travelMode: 'BICYCLING'
+        };
+
+        directionsService.route(request, function(response, status) {
+            if (status === 'OK') {
+                directionsRenderer.setDirections(response);
+                var polyline = new ol.format.Polyline({
+                    factor: 1e5
+                }).readGeometry(response.routes[0].overview_polyline, {
+                    dataProjection: 'EPSG:4326',
+                    featureProjection: 'EPSG:3857'
+                });
+                var feature = new ol.Feature({
+                    geometry: polyline,
+                    name: 'Route'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: [feature]
+                });
+                var vectorLayer = new ol.layer.Vector({
+                    source: vectorSource,
+                    style: new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: '#FF0000',
+                            width: 3
+                        })
+                    })
+                });
+                map.addLayer(vectorLayer);
+            } else {
+                window.alert('Directions request failed due to ' + status);
+            }
+        });
+    </script>
+</body>
+</html>
